@@ -20,7 +20,11 @@ git clone https://github.com/SeanChenHCY/metaLAS.git
 
 ## Usage
 1. First, you have to change parameters in configfile. You have to specify the locations of reads files and checkm database
-2. Run the workflow with snakemake. You have to specify the location of metaLAS after -s and config file after --configfile. Also you can allocate thread number to this workflow.
+2. Activcate snakemake conda environment
+```
+conda activate snakemake
+```
+4. Run the workflow with snakemake. You have to specify the location of metaLAS after -s and config file after --configfile. Also you can allocate thread number to this workflow.
 ```
 snakemake -s {/path/to/metaLAS} --configfile {path/to/config.yaml} --use-conda --cores {threads}
 ```
