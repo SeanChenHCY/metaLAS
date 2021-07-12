@@ -1,10 +1,14 @@
 # metaLAS
-Workflow for Metagenomics assembly with Long reads And Short reads. The workflow is developed based on Snakemake
+Workflow for Metagenomics assembly with Long reads And Short reads to recover prokaryotic metagenomics-assembled genomes. The workflow is developed based on Snakemake.
+
+Detailed information can be found in our [preprint](https://www.biorxiv.org/content/10.1101/2021.05.07.443067v1.full) \
+"Salvaging complete and high-quality genomes of novel microbial species from a meromictic lake using a workflow combining long- and short-read sequencing platforms"   
+
 
 ## Installation
-First, you have to install [Anaconda](https://www.anaconda.com/) or [miniconda3](https://conda.io/en/latest/miniconda.html)
-
-
+1. First, you have to install [Anaconda](https://www.anaconda.com/) or [miniconda3](https://conda.io/en/latest/miniconda.html)
+2. Second, you have to install [snakemake](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html) via conda.
+3. **[Optional]** [Singularity](https://sylabs.io/guides/3.0/user-guide/installation.html) can be installed so that the workflow can be run with containerized conda packages used in the workflow.
 
 
 
