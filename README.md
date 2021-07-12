@@ -15,13 +15,35 @@ Detailed information can be found in our [preprint](https://www.biorxiv.org/cont
 cd {where you want to put the workflow}
 git clone https://github.com/SeanChenHCY/metaLAS.git
 ```
+4. Download [checkM](https://github.com/Ecogenomics/CheckM/wiki/Installation#how-to-install-checkm) database if you do not have. (Remember to extract it)
 5. **[Optional]** [Singularity](https://sylabs.io/guides/3.0/user-guide/installation.html) can be installed so that the workflow can be run with containerized conda packages used in the workflow.
 
-## usage
+## Usage
+1. First, you have to change parameters in configfile. You have to specify the locations of reads files and checkm database
+2. Run the workflow with snakemake. You have to specify the location of metaLAS after -s and config file after --configfile. Also you can allocate thread number to this workflow.
 ```
-snakemake -s {/path/to/metaLAS} --configfile {path/to/config.yaml} --use-conda --cores {CPU}
+snakemake -s {/path/to/metaLAS} --configfile {path/to/config.yaml} --use-conda --cores {threads}
 ```
 
+
+## Output 
+```
+Output/   #you can specify directory of output in config file
+├── 1.megahit_result
+├── 2.metaflye_result
+├── 3.polished_metaflye
+├── 3.polished_metaflye
+├── 4.quickmerge
+├── 5.binning
+├── 6.bin_refinement
+├── 7.read_retrieval
+├── 8.reassembly
+├── 9.final_polish
+├── 10.selected_bin
+├── 11.filtered_bin
+└── 12.circular_contig
+
+```
 
 ## Used tools & References
 If you the workflow, please includes the following references into your manuscript
