@@ -1,0 +1,51 @@
+name: unicycler
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - _openmp_mutex=4.5=1_gnu
+  - blast=2.5.0=hc0b0e79_3
+  - boost=1.73.0=py37h06a4308_11
+  - bowtie2=2.3.5.1=py37he513fc3_0
+  - bzip2=1.0.8=h7b6447c_0
+  - ca-certificates=2021.5.25=h06a4308_1
+  - certifi=2021.5.30=py37h06a4308_0
+  - curl=7.71.1=hbc83047_1
+  - freebayes=0.9.21.7=0
+  - icu=58.2=he6710b0_3
+  - krb5=1.18.2=h173b8e3_0
+  - ld_impl_linux-64=2.35.1=h7274673_9
+  - libboost=1.73.0=h3ff78a5_11
+  - libcurl=7.71.1=h20c2e04_1
+  - libedit=3.1.20210216=h27cfd23_1
+  - libffi=3.3=he6710b0_2
+  - libgcc=7.2.0=h69d50b8_2
+  - libgcc-ng=9.3.0=h5101ec6_17
+  - libgomp=9.3.0=h5101ec6_17
+  - libssh2=1.9.0=h1ba5d50_1
+  - libstdcxx-ng=9.3.0=hd4cf53a_17
+  - lz4-c=1.9.3=h2531618_0
+  - miniasm=0.3_r179=h5bf99c6_2
+  - ncurses=6.2=he6710b0_1
+  - openjdk=8.0.152=h7b6447c_3
+  - openssl=1.1.1k=h27cfd23_0
+  - perl=5.26.2=h14c3975_0
+  - pilon=1.24=hdfd78af_0
+  - pip=21.1.2=py37h06a4308_0
+  - py-boost=1.73.0=py37ha9443f7_11
+  - python=3.7.10=h12debd9_4
+  - racon=1.4.20=h9a82719_1
+  - readline=8.1=h27cfd23_0
+  - samtools=1.7=1
+  - setuptools=52.0.0=py37h06a4308_0
+  - spades=3.13.0=0
+  - sqlite=3.35.4=hdfb4753_0
+  - tbb=2021.2.0=hff7bd54_0
+  - tk=8.6.10=hbc83047_0
+  - unicycler=0.4.8=py37h8b12597_0
+  - wheel=0.36.2=pyhd3eb1b0_0
+  - xz=5.2.5=h7b6447c_0
+  - zlib=1.2.11=h7b6447c_3
+  - zstd=1.4.9=haebb681_0
+prefix: /home/ubuntu/anaconda3/envs/unicycler

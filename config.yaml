@@ -1,0 +1,15 @@
+#version=0.1.0
+outputdir : "output4"
+SR_R1 : "/home/ubuntu/yuhsiang/metaLAS/trimmed_3m_1_1.fastq.gz" # path to short read R1 file
+SR_R2 : "/home/ubuntu/yuhsiang/metaLAS/trimmed_3m_1_2.fastq.gz" # path to short read R2 file
+LR_file : "/home/ubuntu/yuhsiang/metaLAS/shunet_nanopore_3m.0.3.fastq.gz" # path to long read fastq file
+LR_type : "--nano-raw" 
+
+
+
+# Metahit parameter
+k-mer : "21,31,41,51"
+pilon_mem: "50" # how many memory(GB) you want to use for pilon 
+
+#Checkm database location:
+checkm_database_dir : "/home/ubuntu/mnt/database/checkm"

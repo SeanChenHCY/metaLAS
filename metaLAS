@@ -1,0 +1,752 @@
+#version=0.1.0
+
+
+import snakemake
+import os 
+
+
+out_dir = config["outputdir"]
+
+rule all:
+    input:
+        out_dir + "/checkpoint/checkm_finished.txt",
+        out_dir + "/10.selected_bin",
+        out_dir + "/11.filtered_bin",
+        out_dir + "/checkpoint/identifying_circular_original.txt",
+        out_dir + "/checkpoint/crflye_polish_finished.txt"
+        
+
+rule SR_assembly_by_megahit:
+    input:
+        Read1 = config["SR_R1"],
+        Read2 = config["SR_R2"]
+
+    params:
+        k_mer =  config["k-mer"]
+
+    threads: 
+        workflow.cores 
+
+    output:
+        megahit_dic = directory("{out_dir}/1.megahit_result"),
+        megahit_assembly = "{out_dir}/1.megahit_result/final.contigs.fa"
+
+    conda:
+        "envs/megahit.yml"
+
+    shell:
+        "megahit  -1 {input.Read1} -2 {input.Read2} -t {threads} --min-count 2 --k-list {params.k_mer} -o {output.megahit_dic} -f"
+
+
+
+rule long_read_assembly_by_metaFlye:
+    input:
+        long_read = config["LR_file"]
+
+    params:
+        LR_type =  config["LR_type"]
+
+    threads: 
+        workflow.cores 
+
+    output:
+        metaflye_dic = directory("{out_dir}/2.metaflye_result"),
+        metaflye_assembly = "{out_dir}/2.metaflye_result/assembly.fasta",
+        metaflye_info = "{out_dir}/2.metaflye_result/assembly_info.txt"
+
+    conda:
+        "envs/flye.yml"
+
+    shell:
+        "flye  --meta -t {threads} --out-dir {output.metaflye_dic} {params.LR_type} {input.long_read} "
+
+
+
+rule map_SR_to_LR_assemblies:
+    input:
+        Read1 = config["SR_R1"],
+        Read2 = config["SR_R2"],
+        metaflye_assembly = "{out_dir}/2.metaflye_result/assembly.fasta"
+
+    threads: 
+        workflow.cores 
+
+    output:
+        sorted_bam ="{out_dir}/2.metaflye_result/sorted_SR.bam",
+        sorted_bam_index ="{out_dir}/2.metaflye_result/sorted_SR.bam.bai"
+
+    conda:
+        "envs/polish.yml"
+
+    shell:
+        "bwa index {input.metaflye_assembly} ; bwa mem -t {threads} {input.metaflye_assembly} {input.Read1} {input.Read2} | \
+        samtools sort --threads {threads} > {output.sorted_bam} ; samtools index -b {output.sorted_bam} "
+
+
+
+rule polishing: #change xmx parameter
+    input:
+        sorted_bam ="{out_dir}/2.metaflye_result/sorted_SR.bam",
+        sorted_bam_index ="{out_dir}/2.metaflye_result/sorted_SR.bam.bai",
+        metaflye_assembly = "{out_dir}/2.metaflye_result/assembly.fasta"
+
+    output:
+        pilon_dir = directory("{out_dir}/3.polished_metaflye"),
+        pilon_file = "{out_dir}/3.polished_metaflye/pilon.fasta"
+
+    threads: 
+        workflow.cores 
+
+    conda:
+        "envs/basic.yml"
+
+    shell:
+        "pilon -Xmx150G --genome {input.metaflye_assembly} --bam {input.sorted_bam} \
+        --outdir {output.pilon_dir} --output pilon --threads {threads}  --fix bases"
+
+
+#can change quickmerge parameter
+rule quickmerging:
+    input:
+        pilon_file = "{out_dir}/3.polished_metaflye/pilon.fasta",
+        megahit_assembly = "{out_dir}/1.megahit_result/final.contigs.fa"
+
+    output:
+        merged_assembly = "{out_dir}/4.quickmerge/merged.fasta"
+
+    conda:
+        "envs/basic.yml"
+
+    shell:
+        "merge_wrapper.py -ml 7500 -c 3 -hco 8  \
+         {input.megahit_assembly} {input.pilon_file}; mv merged_out.fasta {output.merged_assembly} ; \
+         [ -f param_summary_out.txt ] && rm param_summary_out.txt ; \
+         [ -f hybrid_oneline.fa ] && rm hybrid_oneline.fa ; \
+         [ -f self_oneline.fa ] && rm self_oneline.fa ; \
+         [ -f out.rq.delta ] && rm out.rq.delta ; \
+         [ -f anchor_summary_out.txt ] && rm anchor_summary_out.txt ; \
+         [ -f aln_summary_out.tsv ] && rm aln_summary_out.tsv ; \
+         [ -f out.delta ] && rm out.delta "
+
+
+
+rule mapped_to_merged_assemblies:
+    input:
+        Read1 = config["SR_R1"],
+        Read2 = config["SR_R2"],
+        merged_assembly = "{out_dir}/4.quickmerge/merged.fasta"
+
+    threads: 
+        workflow.cores 
+
+    output:
+        sorted_bam ="{out_dir}/4.quickmerge/sorted.bam"
+
+    conda:
+        "envs/metawrap.yml"
+
+    shell:
+        "bwa index {input.merged_assembly} ; bwa mem -t {threads} {input.merged_assembly} {input.Read1} {input.Read2} | \
+        samtools sort --threads {threads} > {output.sorted_bam} ; samtools index -b {output.sorted_bam} "
+
+
+
+rule metabat2_depth:
+    input:
+        sorted_bam ="{out_dir}/4.quickmerge/sorted.bam",
+        merged_assembly = "{out_dir}/4.quickmerge/merged.fasta"
+
+    output:
+        metabat2_depth_file ="{out_dir}/5.binning/metabat_depth.txt"
+
+    conda:
+        "envs/metawrap.yml"
+
+    shell:
+        "jgi_summarize_bam_contig_depths --outputDepth {output.metabat2_depth_file} {input.sorted_bam}"
+
+
+
+rule maxbin2_depth:
+    input:
+        metabat2_depth_file = "{out_dir}/5.binning/metabat_depth.txt"
+
+    output:
+        maxbin2_depth_file = "{out_dir}/5.binning/maxbin2_depth.txt"
+
+    shell:
+        "awk -v OFS='\t' -F '\t' '{{print $1,$4}}' {input.metabat2_depth_file} | grep -v contigName > {output.maxbin2_depth_file}"
+
+
+
+rule metabat2:
+    input:
+        metabat2_depth_file = "{out_dir}/5.binning/metabat_depth.txt",
+        merged_assembly = "{out_dir}/4.quickmerge/merged.fasta"
+
+    threads: 
+        workflow.cores * 0.5
+
+    output:
+        metabat2_dir = directory("{out_dir}/5.binning/metabat2_bins")
+
+    conda:
+        "envs/metawrap.yml"
+
+    shell:
+        "metabat2 -i {input.merged_assembly} -a {input.metabat2_depth_file} -o {output.metabat2_dir}/bin -m 1500 -t {threads} --unbinned"
+
+
+
+rule maxbin2:
+    input:
+        maxbin2_depth_file = "{out_dir}/5.binning/maxbin2_depth.txt",
+        merged_assembly = "{out_dir}/4.quickmerge/merged.fasta"
+
+    threads: 
+        workflow.cores * 0.3
+
+    conda:
+        "envs/metawrap.yml"
+
+    output:
+        maxbin2_dir = directory("{out_dir}/5.binning/maxbin2_bins"),
+        first_bin = "{out_dir}/5.binning/maxbin2_bins/bin.001.fa" # used us a checkpoint
+
+    shell:
+        "if [ -d {out_dir}/5.binning/tmp ]; then rm -R {out_dir}/5.binning/tmp ; fi ; mkdir {out_dir}/5.binning/tmp ;\
+        run_MaxBin.pl -contig {input.merged_assembly} -thread {threads} -min_contig_length 1500 \
+        -out {out_dir}/5.binning/tmp/bin -abund1 {input.maxbin2_depth_file};\
+        if [ -d {output.maxbin2_dir} ]; then rm -R {output.maxbin2_dir} ; fi ; mkdir {output.maxbin2_dir} ; \
+        cp {out_dir}/5.binning/tmp/bin*.fasta {output.maxbin2_dir}\
+        ; for i in {output.maxbin2_dir}/bin*.fasta ; do mv $i ${{i%%.fasta}}.fa; done" 
+
+
+
+rule CONCOCT_preprocessing:
+    input: 
+        sorted_bam ="{out_dir}/4.quickmerge/sorted.bam",
+        merged_assembly = "{out_dir}/4.quickmerge/merged.fasta"
+
+    threads: 
+        workflow.cores * 0.5
+
+    conda :
+        "envs/metawrap.yml"
+
+    output:
+        depth_concoct ="{out_dir}/5.binning/tmp_CONCOCT/concoct_depth.txt",
+        composition_file = "{out_dir}/5.binning/tmp_CONCOCT/assembly_10K.fa"
+
+    shell:
+        "if [ -d {out_dir}/5.binning/tmp_CONCOCT ]; then rm -R {out_dir}/5.binning/tmp_CONCOCT  ; fi ; mkdir {out_dir}/5.binning/tmp_CONCOCT  ; \
+        samtools index -@ {threads} -b {input.sorted_bam} ; \
+        cut_up_fasta.py {input.merged_assembly} -c 10000 --merge_last -b {out_dir}/5.binning/tmp_CONCOCT/assembly_10K.bed -o 0 > {output.composition_file} ;\
+        concoct_coverage_table.py {out_dir}/5.binning/tmp_CONCOCT/assembly_10K.bed {input.sorted_bam} > {output.depth_concoct}" 
+
+
+
+rule CONCOCT_binning:
+    input:
+        depth_concoct ="{out_dir}/5.binning/tmp_CONCOCT/concoct_depth.txt",
+        composition_file = "{out_dir}/5.binning/tmp_CONCOCT/assembly_10K.fa"
+
+    conda :
+        "envs/metawrap.yml"
+
+    threads: 
+        workflow.cores * 0.5
+
+    output:
+        concoct_out = directory("{out_dir}/5.binning/tmp_CONCOCT/concoct_out"),
+        concoct_out_cluster = "{out_dir}/5.binning/tmp_CONCOCT/concoct_out/clustering_gt1500_merged.csv",
+
+
+    shell:
+        "if [ -d {output.concoct_out} ]; then rm -R {output.concoct_out}  ; fi ; mkdir {output.concoct_out} ; \
+        concoct -l 1500 -t {threads}  \
+        --coverage_file {input.depth_concoct} \
+        --composition_file {input.composition_file} -b {output.concoct_out} ; \
+        merge_cutup_clustering.py  {output.concoct_out}/clustering_gt1500.csv > {output.concoct_out}/clustering_gt1500_merged.csv"
+
+
+
+rule CONCOCT_post:
+    input:
+        concoct_out_cluster = "{out_dir}/5.binning/tmp_CONCOCT/concoct_out/clustering_gt1500_merged.csv",
+        merged_assembly = "{out_dir}/4.quickmerge/merged.fasta"
+
+    conda :
+        "envs/metawrap.yml"
+
+    threads: 
+        workflow.cores * 0.5
+
+    output:
+        CONCOCT_dir = directory("{out_dir}/5.binning/concoct_bins"),
+        first_bin = "{out_dir}/5.binning/concoct_bins/bin.0.fa"
+    shell:    
+        "if [ -d {output.CONCOCT_dir} ]; then rm -R {output.CONCOCT_dir}  ; fi ; mkdir {output.CONCOCT_dir} ; \
+        python scripts/metawrap_split_concoct_bins.py {input.concoct_out_cluster} {input.merged_assembly} {output.CONCOCT_dir}"
+
+
+
+rule metawrap_bin_refinement: #memory can be adjusted 
+    input:
+        concoct_bins_dir = "{out_dir}/5.binning/concoct_bins",
+        metabat2_bins_dir = "{out_dir}/5.binning/metabat2_bins",
+        maxbin2_bins_dir = "{out_dir}/5.binning/maxbin2_bins"
+
+    conda :
+        "envs/metawrap.yml"
+
+    threads: 
+        workflow.cores
+
+    params:
+        checkm_database_dir = config["checkm_database_dir"]
+
+    output:
+        directory("{out_dir}/6.bin_refinement/metawrap_50_10_bins/") 
+
+    shell:
+        "checkm_db={params.checkm_database_dir} ; echo  ${{checkm_db}} | checkm data setRoot ${{checkm_db}} ; \
+        metaWRAP bin_refinement -t {threads} -o {out_dir}/6.bin_refinement/ -A {input.concoct_bins_dir} -B {input.metabat2_bins_dir} -C {input.maxbin2_bins_dir} -c 50 -x 10"
+
+
+
+rule aggregate_bins:
+    input:
+        bins_dic = "{out_dir}/6.bin_refinement/metawrap_50_10_bins/"
+
+    output:
+        aggregate_file = "{out_dir}/7.read_retrieval/aggregate_file.fasta"
+
+    shell:
+        "cat {input.bins_dic}/*.fa* > {output.aggregate_file}"
+
+
+
+rule extract_SR_of_bins: 
+    input:
+        aggregate_file = "{out_dir}/7.read_retrieval/aggregate_file.fasta",
+        bins_dic = "{out_dir}/6.bin_refinement/metawrap_50_10_bins/",
+        Read1 = config["SR_R1"],
+        Read2 = config["SR_R2"]
+    output:
+        SR_of_bins = directory("{out_dir}/7.read_retrieval/NGS_reads")
+
+    threads:
+        workflow.cores * 0.9
+
+    conda:
+        "envs/basic.yml"
+
+    shell:
+        "bwa index {input.aggregate_file}; \
+        if [ -d {output.SR_of_bins} ]; then rm -R {output.SR_of_bins} ; fi ; mkdir {output.SR_of_bins} ; \
+         bwa mem -t {threads} -a {input.aggregate_file} {input.Read1} {input.Read2}  |  \
+        python scripts/metaWARP_filter_reads_for_bin_reassembly.py {input.bins_dic} {output.SR_of_bins}"
+
+
+rule SR_compression: 
+    input:
+        SR_of_bins = "{out_dir}/7.read_retrieval/NGS_reads"
+
+    threads:
+        workflow.cores
+
+    output:
+        checkpoint = "{out_dir}/checkpoint/compression_finished.txt"
+
+    shell:
+        "find {input.SR_of_bins}/ -name '*.fastq'  | xargs  -P {threads} -n 1 gzip ;\
+        touch {output}"
+
+
+
+rule map_LR_to_assembly:
+    input:
+        aggregate_file = "{out_dir}/7.read_retrieval/aggregate_file.fasta",
+        long_read = config["LR_file"]
+    output:
+        LR_sam_file = "{out_dir}/7.read_retrieval/LR_to_merged.sam"
+    conda:
+        "envs/basic.yml"
+    threads: 
+        workflow.cores * 0.9
+    shell:
+        "minimap2 -t {threads} --secondary=no -ax map-ont {input.aggregate_file} {input.long_read} > {output.LR_sam_file}"
+
+
+
+checkpoint classify_LR_of_bins:
+    input: 
+        bins_dic = "{out_dir}/6.bin_refinement/metawrap_50_10_bins/",
+        LR_sam_file = "{out_dir}/7.read_retrieval/LR_to_merged.sam"
+
+    output:
+        LR_of_classification_dir = directory("{out_dir}/7.read_retrieval/long_read_classifincation"),
+        LR_classification_check = "{out_dir}/7.read_retrieval/long_read_classifincation/LR_classified_OK.txt"
+
+    conda:
+        "envs/basic.yml"
+    shell :
+        "if [ -d {output.LR_of_classification_dir} ]; then rm -R {output.LR_of_classification_dir} ; fi ; mkdir {output.LR_of_classification_dir} ; \
+        python scripts/nanopore_reads_extract.py {input.bins_dic} {output.LR_of_classification_dir} {input.LR_sam_file} ; \
+        for i in {output.LR_of_classification_dir}/bin*.nanopore.txt ; do sort $i | uniq > ${{i%%.nanopore.txt}}.uniq.list.txt ; done ; \
+        touch {output.LR_classification_check}"
+
+
+
+rule extractions:
+    input:
+        LR_classifications = "{out_dir}/7.read_retrieval/long_read_classifincation/{bins}.uniq.list.txt",
+        long_read = config["LR_file"],
+        LR_classification_check = "{out_dir}/7.read_retrieval/long_read_classifincation/LR_classified_OK.txt"
+
+    conda:
+        "envs/basic.yml"
+
+    output:
+        extraction_fastq_gz = "{out_dir}/7.read_retrieval/long_reads/{bins}.fastq.gz"
+        
+    shell:
+        "seqkit grep -f {input.LR_classifications}  {input.long_read} -o {output.extraction_fastq_gz}"
+
+
+
+rule flye_reassembly:
+    input:
+        extraction_fastq_gz = "{out_dir}/7.read_retrieval/long_reads/{bins}.fastq.gz"
+
+    conda:
+        "envs/flye.yml"
+
+    output:
+        output_check = "{out_dir}/8.reassembly/flye/{bins}_checked"
+        
+
+
+    threads: 
+        workflow.cores * 0.33333
+
+    shell:
+        "if [ ! -d {out_dir}/8.reassembly/ ]; then mkdir {out_dir}/8.reassembly ; fi ; \
+        (flye -t {threads} --nano-raw {input.extraction_fastq_gz} -o {out_dir}/8.reassembly/{wildcards.bins}_flye && touch {output} \
+        || flye --meta -t {threads} --nano-raw {input.extraction_fastq_gz} -o {out_dir}/8.reassembly/{wildcards.bins}_flye && touch {output} ) \
+        ||   touch {output} "
+
+
+
+def aggregate_flye_reassembly(wildcards):
+    checkpoint_LR = checkpoints.classify_LR_of_bins.get(**wildcards).output[0]
+    return expand("{out_dir}/8.reassembly/flye/{bins}_checked", bins=glob_wildcards(os.path.join(checkpoint_LR,"{bins}.uniq.list.txt")).bins,
+        out_dir = config["outputdir"])
+
+
+
+rule LR_reassembly_aggregate:
+    input:
+        aggregate_flye_reassembly
+
+    output:
+        checkpoint = "{out_dir}/checkpoint/LR_reassembly_finished.txt",
+
+
+    shell:
+        "touch {output.checkpoint}"
+
+
+
+checkpoint unicycler_start:
+    input:
+        LR_reassembly_aggregate_output = "{out_dir}/checkpoint/LR_reassembly_finished.txt",
+        checkpoint = "{out_dir}/checkpoint/compression_finished.txt"
+
+    output:
+        unicycler_checkpoint_dir = directory("{out_dir}/8.reassembly/unicycler_checkpoint")
+        
+    shell:
+        "if [ ! -d {output.unicycler_checkpoint_dir} ]; then mkdir {output.unicycler_checkpoint_dir} ; fi ; \
+        for i in {out_dir}/7.read_retrieval/long_reads/bin*.fastq.gz ; \
+        do tmp_var1=${{i%%.fastq.gz}} && bin_id=${{tmp_var1##{out_dir}/7.read_retrieval/long_reads/}} ;  echo ${{bin_id}} ; \
+        if [ -f {out_dir}/8.reassembly/${{bin_id}}_flye/assembly.fasta ] && [ -f {out_dir}/7.read_retrieval/NGS_reads/${{bin_id}}.all_1.fastq.gz ]  \
+        ; then touch {output.unicycler_checkpoint_dir}/${{bin_id}}.txt  ; fi ; done"
+
+
+
+rule unicycling:
+    input:
+        checked_bin = "{out_dir}/8.reassembly/unicycler_checkpoint/{rbin}.txt"
+
+    conda:
+        "envs/unicycler.yml"
+
+    threads: 
+        workflow.cores /3
+
+    output:
+        unicycler_results = directory("{out_dir}/8.reassembly/{rbin}_unicycler")
+
+    shell:
+        "unicycler -1 {out_dir}/7.read_retrieval/NGS_reads/{wildcards.rbin}.all_1.fastq.gz -2 {out_dir}/7.read_retrieval/NGS_reads/{wildcards.rbin}.all_2.fastq.gz -l \
+         {out_dir}/7.read_retrieval/long_reads/{wildcards.rbin}.fastq.gz --no_pilon  \
+        --existing_long_read_assembly {out_dir}/8.reassembly/{wildcards.rbin}_flye/assembly.fasta -o {output.unicycler_results} -t {threads} || touch {output.unicycler_results}/failed.txt"
+
+
+
+
+
+
+def unicycling_aggregate(wildcards):
+    checkpoint_unicycling = checkpoints.unicycler_start.get(**wildcards).output[0]
+    return expand("{out_dir}/8.reassembly/{rbin}_unicycler", rbin=glob_wildcards(os.path.join(checkpoint_unicycling,"{rbin}.txt")).rbin,
+        out_dir = config["outputdir"])
+
+
+rule unicycling_aggregate:
+    input:
+        unicycling_aggregate 
+
+    output:
+        touch("{out_dir}/checkpoint/unicycling_finished.txt")
+
+
+
+
+###update
+checkpoint move_reassembly:
+    input:
+        unicycling_finished = "{out_dir}/checkpoint/unicycling_finished.txt"
+
+    output:
+        tmp_dic = directory("{out_dir}/tmp/reassembled_bins")
+        
+    shell: 
+        "[ ! -d {out_dir}/tmp ] && mkdir {out_dir}/tmp ; mkdir {out_dir}/tmp/reassembled_bins ; \
+        for i in {out_dir}/8.reassembly/*_unicycler/assembly.fasta ; \
+        do tmp_var1=${{i%%_unicycler/assembly.fasta}} && bin_id=${{tmp_var1##{out_dir}/8.reassembly/}} ;  echo ${{bin_id}} ; \
+        cp $i {output.tmp_dic}/${{bin_id}}.fa \
+          ; done "
+
+
+
+rule polishing_reassembly:
+    input:
+        SR_of_bins_dic = "{out_dir}/7.read_retrieval/NGS_reads/",
+        r_bin = "{out_dir}/tmp/reassembled_bins/{p_rbin}.fa",
+        checkpoint = "{out_dir}/checkpoint/compression_finished.txt"
+
+
+    output:
+        outputfile = "{out_dir}/9.final_polish/{p_rbin}_r.fasta"
+
+    conda:
+        "envs/polish.yml"
+
+    threads:
+        workflow.cores/2
+        
+    shell: 
+        "[ ! -d {out_dir}/9.final_polish/ ] && mkdir {out_dir}/9.final_polish/ ; \
+        python scripts/pilon_polish.py {input.r_bin} {input.SR_of_bins_dic}/{wildcards.p_rbin}.all_1.fastq.gz  \
+        {input.SR_of_bins_dic}/{wildcards.p_rbin}.all_2.fastq.gz {threads} {output.outputfile} "
+
+
+
+def polishing_reassembly_aggregate(wildcards):
+    checkpoint_r_polishing = checkpoints.move_reassembly.get(**wildcards).output[0]
+    return expand("{out_dir}/9.final_polish/{p_rbin}_r.fasta", p_rbin=glob_wildcards(os.path.join(checkpoint_r_polishing,"{p_rbin}.fa")).p_rbin,
+        out_dir = config["outputdir"])
+
+
+rule polishing_reassembly_aggregate:
+    input:
+        polishing_reassembly_aggregate 
+
+    output:
+        r_polish_checkpoint = "{out_dir}/checkpoint/r_polish_finished.txt"
+
+    shell:
+        "touch {output.r_polish_checkpoint}"
+
+
+
+
+###### original
+checkpoint move_original:
+    input:
+        refinement_dic = "{out_dir}/6.bin_refinement/metawrap_50_10_bins/"
+
+    output:
+        tmp_dic = directory("{out_dir}/tmp/original_bins")
+        
+    shell: 
+        "[ ! -d {out_dir}/tmp ] && mkdir {out_dir}/tmp ; mkdir {out_dir}/tmp/original_bins ; \
+        for i in {out_dir}/6.bin_refinement/metawrap_50_10_bins/*.fa ; \
+        do cp $i {output.tmp_dic}/${{i##{out_dir}/6.bin_refinement/metawrap_50_10_bins/}} ; done "
+
+
+
+rule polishing_original:
+    input:
+        SR_of_bins_dic = "{out_dir}/7.read_retrieval/NGS_reads/",
+        o_bins = "{out_dir}/tmp/original_bins/{o_bin}.fa",
+        checkpoint = "{out_dir}/checkpoint/compression_finished.txt"
+
+
+
+    output:
+        outputfile = "{out_dir}/9.final_polish/{o_bin}_o.fasta"
+
+    conda:
+        "envs/polish.yml"
+
+    threads:
+        workflow.cores/2
+        
+    shell: 
+        "[ ! -d {out_dir}/9.final_polish/ ] && mkdir {out_dir}/9.final_polish/ ; \
+        python scripts/pilon_polish.py {input.o_bins} {input.SR_of_bins_dic}/{wildcards.o_bin}.all_1.fastq.gz  \
+        {input.SR_of_bins_dic}/{wildcards.o_bin}.all_2.fastq.gz {threads} {output.outputfile} "
+
+
+
+def polishing_original_aggregate(wildcards):
+    checkpoint_o_polishing = checkpoints.move_original.get(**wildcards).output[0]
+    return expand("{out_dir}/9.final_polish/{o_bin}_o.fasta", o_bin=glob_wildcards(os.path.join(checkpoint_o_polishing,"{o_bin}.fa")).o_bin,
+        out_dir = config["outputdir"])
+
+
+rule polishing_original_aggregate:
+    input:
+        polishing_original_aggregate 
+
+    output:
+        o_polish_checkpoint = "{out_dir}/checkpoint/o_polish_finished.txt",
+
+
+    shell:
+        "touch {output.o_polish_checkpoint}"
+
+
+
+
+rule run_checkm:
+    input:
+        r_polish_checkpoint = "{out_dir}/checkpoint/r_polish_finished.txt",
+        o_polish_checkpoint = "{out_dir}/checkpoint/o_polish_finished.txt",
+
+    output:
+        checkm_checkpoint = "{out_dir}/checkpoint/checkm_finished.txt",
+        checkm_summary = "{out_dir}/9.final_polish/checkm/summary.tsv"
+
+    params:
+        checkm_database_dir = config["checkm_database_dir"]
+
+    threads:
+        workflow.cores
+
+    conda:
+        "envs/metawrap.yml"
+    shell:
+        "checkm_db={params.checkm_database_dir} ; echo  ${{checkm_db}} | checkm data setRoot ${{checkm_db}} ; \
+        checkm lineage_wf  -t {threads}  -x fasta {out_dir}/9.final_polish/ {out_dir}/9.final_polish/checkm ; \
+        checkm qa -t {threads} -o 2 --tab_table -f {out_dir}/9.final_polish/checkm/summary.tsv {out_dir}/9.final_polish/checkm/lineage.ms {out_dir}/9.final_polish/checkm ; \
+        touch {output.checkm_checkpoint}"
+
+
+rule bin_selection:
+    input:
+        checkm_summary = "{out_dir}/9.final_polish/checkm/summary.tsv",
+
+    output:
+        selection_dir = directory("{out_dir}/10.selected_bin"),
+        filter_dir = directory("{out_dir}/11.filtered_bin")
+
+    conda:
+        "envs/basic.yml"
+
+    shell: 
+        "[ ! -d {output.selection_dir} ] && mkdir {output.selection_dir} ; \
+         [ ! -d {output.filter_dir} ] && mkdir {output.filter_dir} ; \
+        python scripts/pick_bins.py {input.checkm_summary} {out_dir}/9.final_polish/ {output.selection_dir} {output.filter_dir} .fasta"
+
+
+rule identifying_circular_original_contig:
+    input:
+        r_polish_checkpoint = "{out_dir}/checkpoint/r_polish_finished.txt",
+        o_polish_checkpoint = "{out_dir}/checkpoint/o_polish_finished.txt",
+        metaflye_info = "{out_dir}/2.metaflye_result/assembly_info.txt"
+
+    output:
+        output_dir = directory("{out_dir}/12.circular_contig/"),
+        checkpoint = "{out_dir}/checkpoint/identifying_circular_original.txt"
+
+
+    shell:
+        "[ ! -d {output.output_dir} ] && mkdir {output.output_dir} ; \
+        python scripts/identify_circular.py {out_dir}/9.final_polish/ {input.metaflye_info} {output.output_dir} ;\
+        touch {output.checkpoint}"
+
+
+
+
+
+
+checkpoint identifying_circular_rflye_contig:
+    input:
+        rflye_bin_check = "{out_dir}/checkpoint/LR_reassembly_finished.txt"
+
+    output:
+        tmp_dir = directory("{out_dir}/tmp/unpolished_cir_rflye_contigs")
+
+    conda:
+        "envs/basic.yml"
+
+    shell:
+        "[ ! -d {output.tmp_dir} ] && mkdir {output.tmp_dir} ; \
+        for i in {out_dir}/8.reassembly/*_flye ; \
+        do tmp_var1=${{i%%_flye}} && rflye_bin=${{tmp_var1##{out_dir}/8.reassembly/}} ; \
+        if [ -f ${{i}}/assembly_info.txt ] && [ -f ${{i}}/assembly.fasta ]  \
+        ; then  python scripts/identify_circular-from-reassembled-flye.py ${{rflye_bin}} $i {output.tmp_dir}  ; fi ; done" \
+
+
+rule polishing_crflye_contig:
+    input:
+        SR_of_bins_dic = "{out_dir}/7.read_retrieval/NGS_reads/",
+        crflye = "{out_dir}/tmp/unpolished_cir_rflye_contigs/{crflye}_unpolished_rf.fasta",
+        checkpoint = "{out_dir}/checkpoint/compression_finished.txt"
+
+    output:
+        outputfile = "{out_dir}/12.circular_contig/{crflye}_rf.fasta"
+
+    conda:
+        "envs/polish.yml"
+
+    threads:
+        workflow.cores/2
+        
+    shell: 
+        "contigs={wildcards.crflye} && bin=${{contigs%%_contig_*}} ; [ ! -d {out_dir}/9.final_polish/ ] && mkdir {out_dir}/9.final_polish/ ; \
+         python scripts/pilon_polish.py {input.crflye} {input.SR_of_bins_dic}/${{bin}}.all_1.fastq.gz  \
+        {input.SR_of_bins_dic}/${{bin}}.all_2.fastq.gz {threads} {output.outputfile} "
+
+
+def polishing_polishing_crflye_contig(wildcards):
+    checkpoint_crflye_polishing = checkpoints.identifying_circular_rflye_contig.get(**wildcards).output[0]
+    return expand("{out_dir}/12.circular_contig/{crflye}_rf.fasta", crflye=glob_wildcards(os.path.join(checkpoint_crflye_polishing,"{crflye}_unpolished_rf.fasta")).crflye,
+        out_dir = config["outputdir"])
+
+
+rule polishing_polishing_crflye_contig:
+    input:
+        polishing_polishing_crflye_contig 
+
+    output:
+        crflye_polish_checkpoint = "{out_dir}/checkpoint/crflye_polish_finished.txt"
+
+    shell:
+        "touch {output.crflye_polish_checkpoint}"
+
