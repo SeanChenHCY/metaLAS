@@ -7,7 +7,7 @@ Detailed information can be found in our [preprint](https://www.biorxiv.org/cont
 
 ## Installation
 1. First, you have to install [Anaconda](https://www.anaconda.com/) or [miniconda3](https://conda.io/en/latest/miniconda.html)
-2. Second, you have to install [snakemake](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html) via conda.
+2. Second, you have to install [snakemake](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html) and mamba via conda.
 3. **[Optional]** [Singularity](https://sylabs.io/guides/3.0/user-guide/installation.html) can be installed so that the workflow can be run with containerized conda packages used in the workflow.
 
 
