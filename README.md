@@ -72,3 +72,6 @@ If you the workflow, please includes the following references into your manuscri
 
 * **CheckM**
   * Parks DH, Imelfort M, Skennerton CT, Hugenholtz P, Tyson GW: CheckM: assessing the quality of microbial genomes recovered from isolates, single cells, and metagenomes. Genome Res 2015, 25(7):1043-1055. 
+
+## Contact 
+Please contact Yu-Hsiang Chen (s871818@gmail.com or GitHub Issues) for any questions, concerns, or feedbacks.
