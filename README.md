@@ -10,10 +10,17 @@ Detailed information can be found in our [preprint](https://www.biorxiv.org/cont
 ## Installation
 1. First, you have to install [Anaconda](https://www.anaconda.com/) or [miniconda3](https://conda.io/en/latest/miniconda.html)
 2. Second, you have to install [snakemake](https://snakemake.readthedocs.io/en/stable/getting_started/installation.html) and mamba via conda.
-3. **[Optional]** [Singularity](https://sylabs.io/guides/3.0/user-guide/installation.html) can be installed so that the workflow can be run with containerized conda packages used in the workflow.
+3. Change the working directory to the directory you want to put workflow and then pull the repository using git:
+```
+cd {where you want to put the workflow}
+git clone https://github.com/SeanChenHCY/metaLAS.git
+```
+5. **[Optional]** [Singularity](https://sylabs.io/guides/3.0/user-guide/installation.html) can be installed so that the workflow can be run with containerized conda packages used in the workflow.
 
-
-
+## usage
+```
+snakemake -s {/path/to/metaLAS} --configfile {path/to/config.yaml} --use-conda --cores {CPU}
+```
 
 
 ## Used tools & References
