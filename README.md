@@ -3,7 +3,9 @@ Workflow for Metagenomics assembly with Long reads And Short reads to recover pr
 
 Detailed information can be found in our [preprint](https://www.biorxiv.org/content/10.1101/2021.05.07.443067v1.full) \
 "Salvaging complete and high-quality genomes of novel microbial species from a meromictic lake using a workflow combining long- and short-read sequencing platforms"   
-
+\
+![alt text](https://github.com/SeanChenHCY/metaLAS/blob/main/scheme.png)
+\
 
 ## Installation
 1. First, you have to install [Anaconda](https://www.anaconda.com/) or [miniconda3](https://conda.io/en/latest/miniconda.html)
