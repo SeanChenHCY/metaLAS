@@ -16,7 +16,7 @@ cd {where you want to put the workflow}
 git clone https://github.com/SeanChenHCY/metaLAS.git
 ```
 4. Download [checkM](https://github.com/Ecogenomics/CheckM/wiki/Installation#how-to-install-checkm) database if you do not have. (Remember to extract it)
-5. **[Optional]** [Singularity](https://sylabs.io/guides/3.0/user-guide/installation.html) can be installed so that the workflow can be run with containerized conda packages used in the workflow.
+5. **[Optional]** [Singularity](https://sylabs.io/guides/3.0/user-guide/installation.html) can be installed so that the workflow can be run with containerized conda packages used in the workflow. (This will be released soon)
 
 ## Usage
 1. First, you have to change parameters in configfile. You have to specify the locations of reads files and checkm database
@@ -35,7 +35,6 @@ snakemake -s {/path/to/metaLAS} --configfile {path/to/config.yaml} --use-conda -
 Output/   #you can specify directory of output in config file
 ├── 1.megahit_result
 ├── 2.metaflye_result
-├── 3.polished_metaflye
 ├── 3.polished_metaflye
 ├── 4.quickmerge
 ├── 5.binning
