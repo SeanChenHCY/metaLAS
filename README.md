@@ -32,7 +32,8 @@ snakemake -s {/path/to/metaLAS} --configfile {path/to/config.yaml} --use-conda -
 4. Alternatively, you can run with singularity so no conda package downloads are necessary.
 If you want to do this way, please add two arugments : --use-singularity --singularity-args '--bind /yourrootdirectories/ ' as below
 ```
-snakemake -s {/path/to/metaLAS} --configfile {path/to/config.yaml}  --use-singularity --singularity-args '--bind /yourrootdirectories/ --use-conda --cores {threads}
+snakemake -s {/path/to/metaLAS} --configfile {path/to/config.yaml}  --use-singularity \
+--singularity-args '--bind /yourrootdirectories/ --use-conda --cores {threads}
 ```
 
 ## Output 
