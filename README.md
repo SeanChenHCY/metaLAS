@@ -24,11 +24,16 @@ git clone https://github.com/SeanChenHCY/metaLAS.git
 ```
 conda activate snakemake
 ```
-4. Run the workflow with snakemake. You have to specify the location of metaLAS after -s and config file after --configfile. Also you can allocate thread number to this workflow.
+3. Run the workflow with snakemake. You have to specify the location of metaLAS after -s and config file after --configfile. Also you can allocate thread number to this workflow.
 ```
 snakemake -s {/path/to/metaLAS} --configfile {path/to/config.yaml} --use-conda --cores {threads}
 ```
 
+4. Alternatively, you can run with singularity so no conda package downloads are necessary.
+If you want to do this way, please add two arugments : --use-singularity --singularity-args '--bind /yourrootdirectories/ ' as below
+```
+snakemake -s {/path/to/metaLAS} --configfile {path/to/config.yaml}  --use-singularity --singularity-args '--bind /yourrootdirectories/ --use-conda --cores {threads}
+```
 
 ## Output 
 ```
