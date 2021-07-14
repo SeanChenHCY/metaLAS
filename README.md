@@ -15,7 +15,7 @@ Detailed information can be found in our [preprint](https://www.biorxiv.org/cont
 cd {where you want to put the workflow}
 git clone https://github.com/SeanChenHCY/metaLAS.git
 ```
-4. Download [checkM](https://github.com/Ecogenomics/CheckM/wiki/Installation#how-to-install-checkm) database if you do not have. (Remember to extract it)
+4. Download [CheckM](https://github.com/Ecogenomics/CheckM/wiki/Installation#how-to-install-checkm) database if you do not have. (Remember to extract it)
 5. **[Optional]** [Singularity](https://sylabs.io/guides/3.0/user-guide/installation.html) can be installed so that the workflow can be run with containerized conda packages used in the workflow. (This will be released soon)
 
 ## Usage
