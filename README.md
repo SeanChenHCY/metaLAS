@@ -15,11 +15,13 @@ Detailed information can be found in our [preprint](https://www.biorxiv.org/cont
 cd {where you want to put the workflow}
 git clone https://github.com/SeanChenHCY/metaLAS.git
 ```
-4. Download [CheckM](https://github.com/Ecogenomics/CheckM/wiki/Installation#how-to-install-checkm) database if you do not have. (Remember to extract it)
-5. **[Optional]** [Singularity](https://sylabs.io/guides/3.0/user-guide/installation.html) can be installed so that the workflow can be run with containerized conda packages used in the workflow.
+4.**[Optional]** [Singularity](https://sylabs.io/guides/3.0/user-guide/installation.html) can be installed so that the workflow can be run with containerized conda packages used in the workflow. 
+
+5. Download [CheckM](https://github.com/Ecogenomics/CheckM/wiki/Installation#how-to-install-checkm) database if you do not have (Remember to extract it). Skip this step if you want to run with Singularity because CheckM database has been wrapped into the images.
+
 
 ## Usage
-1. First, you have to change parameters in configfile. You have to specify the locations of reads files and checkm database
+1. First, you have to change parameters in configfile. You have to specify the locations of reads files and checkm database. (If you want to run with singularity, you don't have to download and set checkm database)
 2. Activcate snakemake conda environment
 ```
 conda activate snakemake
