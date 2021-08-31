@@ -1,7 +1,7 @@
 # metaLAS
 Workflow for Metagenomics assembly with Long reads And Short reads to recover prokaryotic metagenomics-assembled genomes. The workflow is developed based on Snakemake.
 
-Detailed information can be found in our [preprint](https://www.biorxiv.org/content/10.1101/2021.05.07.443067v1.full) \
+Detailed information can be found in our [Publication](https://www.nature.com/articles/s42003-021-02510-6) or [preprint](https://www.biorxiv.org/content/10.1101/2021.05.07.443067v1.full) \
 "Salvaging complete and high-quality genomes of novel microbial species from a meromictic lake using a workflow combining long- and short-read sequencing platforms"   
 \
 ![alt text](https://github.com/SeanChenHCY/metaLAS/blob/main/scheme.png)
